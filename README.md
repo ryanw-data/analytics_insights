@@ -1,2 +1,2 @@
 # analytics_insights
-A Tableau application acting as the companion for Tableau Creators to understand and drive engagement for their content
+A companion Tableau application helping Tableau Creators understand and drive engagement for their applications using Tableau server metadata
