@@ -5,6 +5,6 @@ Getting Started...
 
 Data Architecture
 
-![Data Architecture](https://github.com/ryanw-data/analytics_insights/data_structure.png?raw=true)
+![Data Architecture](hhttps://github.com/ryanw-data/analytics_insights/blob/main/data_structure.png?raw=true)
 
 
