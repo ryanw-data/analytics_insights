@@ -25,7 +25,7 @@ Each box in the diagram below is built using custom SQL against the workgroup da
 ![Data Architecture](https://github.com/ryanw-data/analytics_insights/blob/main/data_structure.png?raw=true)
 
 | Table Name | Description | Code |
-| ------ | ------ |
+| ------ | ------ | ------ |
 | EVENTS | The core fact table. A row for every **_engagement action_** taken by a user on the server | [EVENTS.SQL](SQL/EVENTS.sql) |
 | CONTENT | A dimention table that links workbooks and datasources to their highest parent folder (max. 5 nested folders) | [CONTENT.SQL](SQL/CONTENT.sql) |
 | USERS_DAILY | A daily history for each user account showing what users are licenced on a given day. Only licenced users are included | [USERS_DAILY.SQL](SQL/USERS_DAILY.sql) |
