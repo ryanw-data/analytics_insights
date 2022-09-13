@@ -4,13 +4,18 @@ WITH EVENTS as (
     su.EMAIL USER_EMAIL,
     het.name event_type, 
     he.created_at event_time,
+    DATE_TRUNC('day',he.CREATED_AT)::DATE event_date,
     LAG(he.created_at) OVER(PARTITION BY su.EMAIL ORDER BY he.created_at) prev_event_time,
     LEAD(he.created_at) OVER(PARTITION BY su.EMAIL ORDER BY he.created_at) next_event_time,
     hs.name site_name,
     hp.name project_name,
+    hp.ID project_id,
     hw.name workbook_name,
+    hw.ID workbook_id,
     hv.name view_name,
-    hd.name datasource_name
+    hv.ID view_id,
+    hd.name datasource_name,
+    hd.ID datasource_id
     FROM historical_events he
     JOIN historical_event_types het ON het.type_id = he.historical_event_type_id
     LEFT JOIN HIST_USERS hu ON hu.ID = he.hist_actor_user_id

@@ -2,13 +2,16 @@
 With this Tableau companion application, Tableau Creators can learn how their applications are being used, optimise their content, and close gaps in their analytical offering.
 
 ## Introduction
+
+Good content drives more user engagement which, in turn, drives demand for more content. A network effect for enterprise analytics.
+
 As content creators we typically want to optimise a few things:
 1. **Engagement**: We want to ensure that each tool we build gets the appropriate level of engagement (keyword _appropriate_, not all dashboards have to be viewed every day!)
-2. **Penetration**: We want to ensure that each tool is embedded into the user base with all the appropriate users. People come and go, good analytical tools are forever.
-3. **Debt**: We want to ensure that we have exactly the right amount of content to unlock maximum user autonomy whilst minimising our own liability and end-user complexity.
+2. **Penetration**: We want to ensure that every tool is embedded into the user base with all the appropriate users. People come and go, good analytical tools are forever.
+3. **Debt**: We need to balance the amount of content we have with the maintence demends "data debt". 
 4. **Time**: Data people never have enough time. We need empirical evidence to help us shape the roadmap and make tough priority calls.
 
-Therefore, the idea is simple: _Treat Analytical Applications (workbooks) the same way Ebay and Amazon treat Classified Listings or LinkedIn and Instagram treat Sponsored posts. Good content collects more users which drives more content - the engagement network effect in full swing._
+Therefore, the idea is simple: _Think of Analytical Applications (workbooks) the same way Ebay and Amazon think about Classified Listings or LinkedIn and Instagram think about Sponsored posts._
 
 You can view a sample application on [Tableau Public](https://www.google.co.uk). 
 
@@ -29,21 +32,21 @@ We recommend creating the logical data model first using the code in this repo (
 
 1. Clone this repository to a local directory
 2. Create a new data source in Tableau and [connect to the workgroup database](https://help.tableau.com/current/server/en-us/perf_collect_server_repo.htm)
-3. We will be using Tableau's [logical data model and NOT the physical data model](https://help.tableau.com/current/pro/desktop/en-us/datasource_datamodel.htm). Copy and paste each SQL file in the /SQL directory into a new "Custom SQL" table in the logical data model
+3. We will be using Tableau's [logical data model and NOT the physical data model](https://help.tableau.com/current/pro/desktop/en-us/datasource_datamodel.htm). Copy and paste each SQL file from the /SQL directory into a new "Custom SQL" table in the logical data model
 4. Create the following relationships between the tables as follows:
 - EVENTS to USERS_DAILY
 - USERS_DAILY to USER_GROUPS_DAILY
 - EVENTS to CONTENT
 5. Publish and schedule your datasource to update. We recommend a nightly refresh - work with your Tableau Administrator to find a quiet time for this schedule to run.
 6. Upload the Tableau workbook to the same server as your datasource
-7. When prompted, select the uploaded datasource and the source for the application.
+7. When prompted, select the uploaded datasource as the source for the application.
 
 
 ## Documentation
 
 ### Overview
 
-The application follows a standard "BI" three-tier model - database, data model, presentation. For simplicity we opted to use an "ETL" vs "ELT" approach and therefore both extraction and manipulation are handled in the data model layer avoiding the need for a staging raw data. This worked for our deployment but you may need to seporate these activities in your environment.
+The application follows a standard "BI" three-tier model - database, data model, presentation. For simplicity we opted to use an "ETL" vs "ELT" approach, therefore both extraction and manipulation are handled in the data model layer. This allows us to avoid the need for a staging area and orchestration tool.
 
 ```mermaid
 flowchart  LR 
@@ -68,13 +71,13 @@ DataModel -->|Logical Model| Presentation
 
 #### Database Layer
 
-The primary source for this application is the Tableau Server's metadata AKA the workgroup database stored in a PostgresSQL database. You can read more about this datasource [here](https://help.tableau.com/current/server/en-us/data_dictionary.htm "Tableau Documentation"). 
+The primary source for this application is the Tableau Server's metadata AKA the workgroup database. You can read more about this datasource [here](https://help.tableau.com/current/server/en-us/data_dictionary.htm "Tableau Documentation"). 
 
 Data is extracted from the workgroup database using custom SQL to create a logical data model within Tableau "DataModel".
 
 #### DataModel Layer
 
-Each table in the Tableau logical data model is represented as a row on the below table, and each table/row has a SQL query.
+Each table in the Tableau logical data model is represented as a row on the below table, and each table/row has a SQL query in /SQL/*
 
 | Table Name | Description | Code |
 | ------ | ------ | ------ |
