@@ -1,9 +1,23 @@
-WITH USER_UPDATES AS (
+WITH CURRENT_USERS AS (
+    SELECT 
+    'Licenced' LICENCE_STATUS,
+    su.EMAIL USER_EMAIL,
+    su.ID SYSTEM_USER_ID,
+    u.ID USER_ID,
+    NOW()::TIMESTAMP CHANGE_TIME,
+    NOW()::DATE CHANGE_DATE
+    FROM USERS u
+    JOIN SYSTEM_USERS su ON su.ID = u.SYSTEM_USER_ID
+    WHERE u.SITE_ID = 5
+    AND u.SITE_ROLE_ID NOT IN (8)
+), 
+USER_UPDATES AS (
     --Returns all "user licence update" events types from the commercial site
     SELECT 
     CASE WHEN sr.ID IN (8) THEN 'Unlicenced' ELSE 'Licenced' END LICENCE_STATUS, --if not 8 unlicenced then must be licenced
     su.EMAIL USER_EMAIL,
     su.ID SYSTEM_USER_ID,
+    u.USER_ID,
     he.CREATED_AT CHANGE_TIME,
     DATE_TRUNC('day',he.CREATED_AT)::DATE CHANGE_DATE, --removing the timestamp from CHANGE_TIME
     ROW_NUMBER() OVER(PARTITION BY su.EMAIL ORDER BY he.CREATED_AT) rn --order of events per user
@@ -27,6 +41,7 @@ START_EVENT AS (
     'Licenced' LICENCE_STATUS, --Assume that must have been licenced if first event is unlicenced
     USER_EMAIL,
     SYSTEM_USER_ID,
+    USER_ID,
     esd.MIN_CHANGE_TIME CHANGE_TIME,
     esd.MIN_CHANGE_DATE CHANGE_DATE
     FROM USER_UPDATES
@@ -40,6 +55,7 @@ LICENCED_USERS AS (
     'Licenced' LICENCE_STATUS, --unlicenced type removed in where clause, everything else is varient on licenced
     su.EMAIL USER_EMAIL,
     su.ID SYSTEM_USER_ID,
+    u.ID USER_ID,
     esd.MIN_CHANGE_TIME CHANGE_TIME,
     esd.MIN_CHANGE_DATE CHANGE_DATE
     FROM USERS u
@@ -54,15 +70,18 @@ UNIONED_DATASET AS (
 SELECT *, MIN(res_2.CHANGE_DATE) OVER(PARTITION BY res_2.USER_EMAIL ORDER BY res_2.CHANGE_DATE) FIRST_EVENT_DATE
 FROM (
     SELECT res_1.*,
-    ROW_NUMBER() OVER(PARTITION BY res_1.USER_EMAIL, res_1.CHANGE_DATE ORDER BY res_1.CHANGE_TIME) rn --latest row per day per user
+    ROW_NUMBER() OVER(PARTITION BY res_1.USER_EMAIL, res_1.CHANGE_DATE ORDER BY res_1.CHANGE_TIME DESC) rn --latest row per day per user
     FROM (
-        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, CHANGE_TIME, CHANGE_DATE
+        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, USER_ID, CHANGE_TIME, CHANGE_DATE
+        FROM CURRENT_USERS
+        UNION ALL
+        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, USER_ID, CHANGE_TIME, CHANGE_DATE
         FROM USER_UPDATES
         UNION ALL
-        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, CHANGE_TIME, CHANGE_DATE
+        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, USER_ID, CHANGE_TIME, CHANGE_DATE
         FROM START_EVENT 
         UNION ALL
-        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, CHANGE_TIME, CHANGE_DATE
+        SELECT LICENCE_STATUS, USER_EMAIL, SYSTEM_USER_ID, USER_ID, CHANGE_TIME, CHANGE_DATE
         FROM LICENCED_USERS
     ) res_1
 ) res_2
@@ -76,7 +95,7 @@ DATE_RANGE AS (
         SELECT date_trunc('day', dd)::DATE DATES
         FROM generate_series ('2015-01-01'::timestamp, 'now'::timestamp, '1 day'::interval) dd --creates a generic date series
     ) res_1
-    CROSS JOIN (SELECT DISTINCT USER_EMAIL, FIRST_EVENT_DATE, SYSTEM_USER_ID FROM UNIONED_DATASET) x --Explodes out the dataset to create the grain
+    CROSS JOIN (SELECT DISTINCT USER_EMAIL, FIRST_EVENT_DATE, SYSTEM_USER_ID, USER_ID FROM UNIONED_DATASET) x --Explodes out the dataset to create the grain
     WHERE x.FIRST_EVENT_DATE <= res_1.DATES --only includes dates after the first event date
 )
 SELECT *
@@ -87,6 +106,7 @@ FROM (
     FIRST_VALUE(LICENCE_STATUS) OVER(PARTITION BY USER_EMAIL, PARTITION_WINDOW ORDER BY VIEW_DATE) LICENCE_STATUS, --backfill value
     USER_EMAIL,
     SYSTEM_USER_ID,
+    USER_ID,
     CASE WHEN rn_desc = 1 THEN 1 ELSE 0 END CURRENT_DATE_FLAG --if the row is the most recent for user then 1
     FROM (
         --Subquery is to add all required columns into a single series per user per day and adds columns needed for backfill
@@ -95,6 +115,7 @@ FROM (
         ud.LICENCE_STATUS,
         dr.USER_EMAIL,
         dr.SYSTEM_USER_ID,
+        dr.USER_ID,
         SUM(CASE WHEN ud.FIRST_EVENT_DATE IS NULL THEN 0 ELSE 1 END) OVER(PARTITION BY dr.USER_EMAIL ORDER BY dr.DATES) PARTITION_WINDOW, --incremental counter to act as a marker for backfill in outer query
         ROW_NUMBER() OVER(PARTITION BY dr.USER_EMAIL ORDER BY dr.DATES DESC) rn_desc --row number to find latest row per user
         FROM DATE_RANGE dr

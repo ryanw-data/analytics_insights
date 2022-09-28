@@ -7,21 +7,20 @@ AND CONTENT_TYPE = 'project' --projects only
 tier_1 AS (
     --returns all the top level projects you see on the landing screen of the commercial explore page
     SELECT 
-    p.NAME t1_project_name,
-    NULL t2_project_name,
+    p.NAME project_domain,
+    NULL project_sub_domain,
     p.NAME PROJECT_NAME,
     p.ID PROJECT_ID,
     1 PROJECT_LEVEL
     FROM ALL_PROJECTS ap
     JOIN PROJECTS p ON p.ID = ap.CONTENT_ID
     WHERE ap.PROJECT_ID IS NULL --NO PARENT FOLDER
-    --AND ap.CONTENT_ID = 41
 ),
 tier_2 AS (
     SELECT 
-    t1.t1_project_name,
-    p.NAME t2_project_name,
-    p.NAME PROJECT_NAME,
+    t1.project_domain,
+    p.NAME project_sub_folder,
+    p.NAME project_sub_domain,
     p.ID PROJECT_ID,
     2 PROJECT_LEVEL
     FROM ALL_PROJECTS ap
@@ -31,8 +30,8 @@ tier_2 AS (
 ),
 tier_3 AS (
     SELECT 
-    t2.t1_project_name,
-    t2.t2_project_name,
+    t2.project_domain,
+    t2.project_sub_domain,
     p.NAME PROJECT_NAME,
     p.ID PROJECT_ID,
     3 PROJECT_LEVEL
@@ -43,8 +42,8 @@ tier_3 AS (
 ),
 tier_4 AS (
     SELECT 
-    t3.t1_project_name,
-    t3.t2_project_name,
+    t3.project_domain,
+    t3.project_sub_domain,
     p.NAME PROJECT_NAME,
     p.ID PROJECT_ID,
     4 PROJECT_LEVEL
@@ -55,8 +54,8 @@ tier_4 AS (
 ),
 tier_5 AS (
     SELECT 
-    t4.t1_project_name,
-    t4.t2_project_name,
+    t4.project_domain,
+    t4.project_sub_domain,
     p.NAME PROJECT_NAME,
     p.ID PROJECT_ID,
     5 PROJECT_LEVEL

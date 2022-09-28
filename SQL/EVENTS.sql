@@ -1,6 +1,7 @@
 WITH EVENTS as (
     SELECT
     su.ID SYSTEM_USER_ID,
+    hu.USER_ID,
     su.EMAIL USER_EMAIL,
     het.name event_type, 
     he.created_at event_time,
@@ -9,13 +10,13 @@ WITH EVENTS as (
     LEAD(he.created_at) OVER(PARTITION BY su.EMAIL ORDER BY he.created_at) next_event_time,
     hs.name site_name,
     hp.name project_name,
-    hp.ID project_id,
+    hp.project_id project_id,
     hw.name workbook_name,
-    hw.ID workbook_id,
+    hw.workbook_id workbook_id,
     hv.name view_name,
-    hv.ID view_id,
+    hv.view_id view_id,
     hd.name datasource_name,
-    hd.ID datasource_id
+    hd.datasource_id datasource_id
     FROM historical_events he
     JOIN historical_event_types het ON het.type_id = he.historical_event_type_id
     LEFT JOIN HIST_USERS hu ON hu.ID = he.hist_actor_user_id

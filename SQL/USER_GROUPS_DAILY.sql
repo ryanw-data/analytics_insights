@@ -3,10 +3,12 @@ WITH GROUP_MEMBERSHIP_CHANGES AS (
     SELECT 
     su.ID SYSTEM_USER_ID,
     su.email user_email, 
+    u.USER_ID,
     CASE WHEN he.HISTORICAL_EVENT_TYPE_ID = 42 THEN 'ADDED' ELSE 'REMOVED' END UPDATE_TYPE, --converting ID to text
     he.CREATED_AT CHANGE_TIME,
     DATE_TRUNC('day', he.CREATED_AT)::DATE CHANGE_DATE, --removing timestamp from CHANGE_TIME
     hg.NAME GROUP_NAME,
+    hg.GROUP_ID GROUP_ID,
     ROW_NUMBER() OVER(PARTITION BY su.email, hg.NAME ORDER BY he.CREATED_AT) rn --order of events per user per group
     FROM HISTORICAL_EVENTS he
     JOIN HIST_USERS u ON u.ID = he.hist_target_user_id
@@ -27,10 +29,12 @@ START_EVENTS AS (
     SELECT 
     gmc.SYSTEM_USER_ID,
     gmc.USER_EMAIL,
+    gmc.USER_ID,
     'ADDED' UPDATE_TYPE, --Assume that must have been in the group "added" if first event is removed
     esd.MIN_CHANGE_TIME CHANGE_TIME,
     esd.MIN_CHANGE_DATE CHANGE_DATE,
-    gmc.GROUP_NAME
+    gmc.GROUP_NAME,
+    gmc.GROUP_ID
     FROM GROUP_MEMBERSHIP_CHANGES gmc
     CROSS JOIN EVENT_START_DATE esd
     WHERE gmc.rn = 1 --returns only first row per user per group
@@ -41,10 +45,12 @@ GROUP_MEMBERSHIP AS (
     SELECT 
     su.ID SYSTEM_USER_ID,
     su.EMAIL USER_EMAIL,
+    u.ID USER_ID,
     'ADDED' UPDATE_TYPE, --Only active memberships exist in tables, so only one possible status
     esd.MIN_CHANGE_TIME CHANGE_TIME,
     esd.MIN_CHANGE_DATE CHANGE_DATE,
-    g.NAME GROUP_NAME
+    g.NAME GROUP_NAME,
+    g.ID GROUP_ID
     FROM GROUP_USERS gu
     JOIN USERS u ON u.ID = gu.USER_ID
     JOIN SYSTEM_USERS su ON su.ID = u.SYSTEM_USER_ID
@@ -62,13 +68,13 @@ UNIONED_DATASETS AS (
         ROW_NUMBER() OVER(PARTITION BY res_1.USER_EMAIL, res_1.GROUP_NAME, res_1.CHANGE_DATE ORDER BY res_1.CHANGE_TIME) rn --ranks events per user per group per day
         FROM (
             --combines the event CTEs into a single stream per user per group
-            SELECT SYSTEM_USER_ID, USER_EMAIL, UPDATE_TYPE, CHANGE_TIME, CHANGE_DATE, GROUP_NAME
+            SELECT SYSTEM_USER_ID, USER_EMAIL, USER_ID, UPDATE_TYPE, CHANGE_TIME, CHANGE_DATE, GROUP_NAME, GROUP_ID
             FROM GROUP_MEMBERSHIP_CHANGES
             UNION ALL
-            SELECT SYSTEM_USER_ID, USER_EMAIL, UPDATE_TYPE, CHANGE_TIME, CHANGE_DATE, GROUP_NAME
+            SELECT SYSTEM_USER_ID, USER_EMAIL, USER_ID, UPDATE_TYPE, CHANGE_TIME, CHANGE_DATE, GROUP_NAME, GROUP_ID
             FROM START_EVENTS
             UNION ALL
-            SELECT SYSTEM_USER_ID, USER_EMAIL, UPDATE_TYPE, CHANGE_TIME, CHANGE_DATE, GROUP_NAME
+            SELECT SYSTEM_USER_ID, USER_EMAIL, USER_ID, UPDATE_TYPE, CHANGE_TIME, CHANGE_DATE, GROUP_NAME, GROUP_ID
             FROM GROUP_MEMBERSHIP
         ) res_1
     ) res_2
@@ -81,7 +87,7 @@ DATE_RANGE AS (
         SELECT date_trunc('day', dd)::DATE DATES
         FROM generate_series ('now'::timestamp - '10 month'::interval, 'now'::timestamp, '1 day'::interval) dd
     ) res_1
-    CROSS JOIN (SELECT DISTINCT USER_EMAIL, GROUP_NAME, SYSTEM_USER_ID, FIRST_EVENT_DATE FROM UNIONED_DATASETS) x
+    CROSS JOIN (SELECT DISTINCT USER_EMAIL, GROUP_NAME, GROUP_ID, SYSTEM_USER_ID, FIRST_EVENT_DATE, USER_ID FROM UNIONED_DATASETS) x
     WHERE x.FIRST_EVENT_DATE <= res_1.DATES --only keep rows where the user and group had a relationship
 )
 SELECT *
@@ -90,23 +96,25 @@ FROM (
     VIEW_DATE,
     SYSTEM_USER_ID,
     USER_EMAIL,
+    USER_ID,
     GROUP_NAME,
-    FIRST_VALUE(UPDATE_TYPE) OVER(PARTITION BY USER_EMAIL, PARTITION_WINDOW ORDER BY VIEW_DATE) UPDATE_TYPE, --backfill value
-    CASE WHEN rn_desc = 1 THEN 1 ELSE 0 END CURRENT_DAY_FLAG --if the row is the most recent for user then 1
+    GROUP_ID,
+    FIRST_VALUE(UPDATE_TYPE) OVER(PARTITION BY USER_EMAIL, PARTITION_WINDOW ORDER BY VIEW_DATE) UPDATE_TYPE --backfill value
     FROM (
         --Subquery is to add all required columns into a single series per user per day per group and adds columns needed for backfill
         SELECT 
         dr.DATES VIEW_DATE,
         dr.SYSTEM_USER_ID,
         dr.USER_EMAIL,
+        dr.USER_ID,
         dr.GROUP_NAME,
+        dr.GROUP_ID,
         ud.UPDATE_TYPE,
-        SUM(CASE WHEN ud.UPDATE_TYPE IS NULL THEN 0 ELSE 1 END) OVER(PARTITION BY dr.USER_EMAIL, dr.GROUP_NAME ORDER BY dr.DATES) PARTITION_WINDOW, --incremental counter to act as a marker for backfill in outer query
-        ROW_NUMBER() OVER(PARTITION BY dr.USER_EMAIL, dr.GROUP_NAME ORDER BY dr.DATES DESC) rn_desc --row number to find latest row per user per group
+        SUM(CASE WHEN ud.UPDATE_TYPE IS NULL THEN 0 ELSE 1 END) OVER(PARTITION BY dr.USER_EMAIL, dr.GROUP_NAME ORDER BY dr.DATES) PARTITION_WINDOW --incremental counter to act as a marker for backfill in outer query
         FROM DATE_RANGE dr
         LEFT JOIN UNIONED_DATASETS ud ON ud.USER_EMAIL = dr.USER_EMAIL AND ud.GROUP_NAME = dr.GROUP_NAME AND ud.CHANGE_DATE = dr.DATES
     ) res_1
-    WHERE GROUP_NAME != 'All Users' --removes the generic all users group
+    --WHERE GROUP_NAME != 'All Users' --removes the generic all users group
 ) res_2
 WHERE UPDATE_TYPE != 'REMOVED' --only keep rows if they represent an active membership
 ORDER BY USER_EMAIL, GROUP_NAME, VIEW_DATE
