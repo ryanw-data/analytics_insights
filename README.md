@@ -3,11 +3,9 @@ With this Tableau companion application, Tableau Creators can learn how their ap
 
 ## Introduction
 
-Excellent content drives user engagement which, in turn, drives demand for more analytics content. This application helps creators understand their network effect for enterprise analytics.
+Excellent content drives user engagement which, in turn, drives demand for more analytics content: we call this the analytics [flywheel](https://medium.com/swlh/the-amazing-flywheel-effect-80a0a21a5ea7). This application is built to help Tableau developers take a grip on their flywheel and start building momentum amongst their user base.
 
-The idea is simple: _**Think of Analytical Applications (workbooks) the same way Ebay and Amazon think about Classified Listings or LinkedIn and Instagram think about Content posts.**_
-
-You can view a sample application with dummy data on [Tableau Public](https://www.google.co.uk). 
+You can view a sample application with dummy data on [Tableau Public](https://public.tableau.com/app/profile/fuadahmed/viz/TableauEngagmentPostgreSQLDashboard/Overview). 
 
 ## Why
 
